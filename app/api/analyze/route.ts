@@ -55,7 +55,10 @@ function buildSystemPrompt(): string {
 
 注意事項:
 - 「持ってくるもの」「用意するもの」「準備物」などは items に分類してください
+- 持ち物は必ず1アイテムずつ個別に分けてください。「体操服、赤白帽、タオル」のようにまとめず、それぞれ別のitemとして出力してください
+  例: ❌ {"name": "体操服・赤白帽・タオル"} → ✅ {"name": "体操服"}, {"name": "赤白帽"}, {"name": "タオル"}
 - 連絡事項（notices）にはお知らせ、注意事項、お願いなどをできるだけ詳しく含めてください
+- 日付に曜日が括弧で書かれている場合（例: 「10日(水)」「15日（金）」）、曜日は無視して日付の数字のみ使ってください。曜日が間違っている場合があるため、数字だけを信頼してください
 - 必ず有効なJSONのみを返してください。説明文は不要です`;
 }
 
@@ -66,21 +69,24 @@ function buildSystemPrompt(): string {
 function normalizeDate(dateStr: string): string {
   if (!dateStr) return dateStr;
 
+  // Strip day-of-week info in parentheses: "10日(水)" → "10日", "15日（金）" → "15日"
+  const cleaned = dateStr.replace(/[（(][月火水木金土日][）)]/g, "");
+
   // Already in YYYY-MM-DD format
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return cleaned;
 
   const now = new Date();
   const month = now.getMonth() + 1;
   const schoolYear = month >= 4 ? now.getFullYear() : now.getFullYear() - 1;
 
   // Match "YYYY年MM月DD日" or "YYYY/MM/DD"
-  let m = dateStr.match(/(\d{4})[年/\-.](\d{1,2})[月/\-.](\d{1,2})/);
+  let m = cleaned.match(/(\d{4})[年/\-.](\d{1,2})[月/\-.](\d{1,2})/);
   if (m) {
     return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
   }
 
   // Match "MM月DD日" or "MM/DD"
-  m = dateStr.match(/(\d{1,2})[月/](\d{1,2})/);
+  m = cleaned.match(/(\d{1,2})[月/](\d{1,2})/);
   if (m) {
     const mon = parseInt(m[1]);
     const day = parseInt(m[2]);
@@ -88,7 +94,7 @@ function normalizeDate(dateStr: string): string {
     return `${year}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
 
-  return dateStr;
+  return cleaned;
 }
 
 type ImageContent = {
