@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import PhotoUploader from "@/components/PhotoUploader";
+import type { ImageData } from "@/components/PhotoUploader";
 import EventList from "@/components/EventList";
 import CheckList from "@/components/CheckList";
 import CalendarSync from "@/components/CalendarSync";
 import NoticeList from "@/components/NoticeList";
+import ReminderSetting from "@/components/ReminderSetting";
 import type { AnalysisResult, PrintRecord } from "@/lib/types";
 import { loadRecords, addRecord, updateRecord, deleteRecord } from "@/lib/storage";
+import { checkAndNotify } from "@/lib/reminder";
 import { ArrowLeft, Trash2, Clock } from "lucide-react";
 
 type View = "home" | "detail";
@@ -21,9 +24,13 @@ export default function Home() {
 
   useEffect(() => {
     setRecords(loadRecords());
+    // Check reminders on load and every minute
+    checkAndNotify();
+    const interval = setInterval(checkAndNotify, 60000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleAnalyze = async (image: string, mimeType: string) => {
+  const handleAnalyze = async (images: ImageData[]) => {
     setIsLoading(true);
     setError(null);
 
@@ -31,7 +38,9 @@ export default function Home() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image, mimeType }),
+        body: JSON.stringify({
+          images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
+        }),
       });
 
       const data: AnalysisResult = await response.json();
@@ -190,6 +199,10 @@ export default function Home() {
             <CheckList items={activeRecord.result.items} onToggle={handleToggleItem} />
             <NoticeList notices={activeRecord.result.notices} />
             <CalendarSync events={activeRecord.result.events} />
+            <ReminderSetting
+              events={activeRecord.result.events}
+              items={activeRecord.result.items}
+            />
 
             {/* Scan Another */}
             <div className="pt-4">

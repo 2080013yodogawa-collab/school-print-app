@@ -1,14 +1,20 @@
 "use client";
 
-import { Camera, Upload, X, Loader2 } from "lucide-react";
+import { Camera, Upload, X, Loader2, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 
+export interface ImageData {
+  base64: string;
+  mimeType: string;
+  dataUrl: string;
+}
+
 interface PhotoUploaderProps {
-  onAnalyze: (image: string, mimeType: string) => void;
+  onAnalyze: (images: ImageData[]) => void;
   isLoading: boolean;
 }
 
-function compressImage(file: File, maxWidth = 1600, quality = 0.7): Promise<{ base64: string; mimeType: string; dataUrl: string }> {
+function compressImage(file: File, maxWidth = 1600, quality = 0.7): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -33,47 +39,56 @@ function compressImage(file: File, maxWidth = 1600, quality = 0.7): Promise<{ ba
 }
 
 export default function PhotoUploader({ onAnalyze, isLoading }: PhotoUploaderProps) {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [images, setImages] = useState<ImageData[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const addFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    try {
-      const compressed = await compressImage(file);
-      setPreview(compressed.dataUrl);
-      setImageData({ base64: compressed.base64, mimeType: compressed.mimeType });
-    } catch {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        setPreview(result);
-        const base64 = result.split(",")[1];
-        setImageData({ base64, mimeType: file.type });
-      };
-      reader.readAsDataURL(file);
+    const newImages: ImageData[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const compressed = await compressImage(file);
+        newImages.push(compressed);
+      } catch {
+        // fallback: read as-is
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        newImages.push({
+          base64: dataUrl.split(",")[1],
+          mimeType: file.type,
+          dataUrl,
+        });
+      }
     }
+    setImages((prev) => [...prev, ...newImages]);
+    // Reset input
+    e.target.value = "";
   };
 
-  const handleClear = () => {
-    setPreview(null);
-    setImageData(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
+  const handleRemove = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleClearAll = () => {
+    setImages([]);
   };
 
   const handleAnalyze = () => {
-    if (imageData) {
-      onAnalyze(imageData.base64, imageData.mimeType);
+    if (images.length > 0) {
+      onAnalyze(images);
     }
   };
 
   return (
     <div className="w-full max-w-md mx-auto">
-      {!preview ? (
+      {images.length === 0 ? (
         <div className="space-y-3">
           <button
             onClick={() => cameraInputRef.current?.click()}
@@ -87,7 +102,7 @@ export default function PhotoUploader({ onAnalyze, isLoading }: PhotoUploaderPro
             className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 rounded-xl py-4 px-6 text-lg font-medium transition-colors"
           >
             <Upload className="w-6 h-6" />
-            写真を選択
+            写真を選択（複数可）
           </button>
           <input
             ref={cameraInputRef}
@@ -101,36 +116,72 @@ export default function PhotoUploader({ onAnalyze, isLoading }: PhotoUploaderPro
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             onChange={handleFileChange}
             className="hidden"
           />
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="relative rounded-xl overflow-hidden border-2 border-gray-200">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="プリントのプレビュー" className="w-full" />
+          {/* Image previews grid */}
+          <div className="grid grid-cols-2 gap-2">
+            {images.map((img, i) => (
+              <div key={i} className="relative rounded-xl overflow-hidden border-2 border-gray-200 aspect-[3/4]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img.dataUrl} alt={`プリント ${i + 1}`} className="w-full h-full object-cover" />
+                <button
+                  onClick={() => handleRemove(i)}
+                  className="absolute top-1.5 right-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <span className="absolute bottom-1.5 left-1.5 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
+                  {i + 1}枚目
+                </span>
+              </div>
+            ))}
+            {/* Add more button */}
             <button
-              onClick={handleClear}
-              className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+              onClick={() => addFileInputRef.current?.click()}
+              className="rounded-xl border-2 border-dashed border-gray-300 aspect-[3/4] flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-gray-500 hover:border-gray-400 transition-colors"
             >
-              <X className="w-5 h-5" />
+              <Plus className="w-8 h-8" />
+              <span className="text-xs">追加</span>
             </button>
           </div>
-          <button
-            onClick={handleAnalyze}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white rounded-xl py-4 px-6 text-lg font-medium transition-colors"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-6 h-6 animate-spin" />
-                解析中...
-              </>
-            ) : (
-              "プリントを解析する"
-            )}
-          </button>
+          <input
+            ref={addFileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          <p className="text-center text-sm text-gray-500">{images.length}枚の写真を選択中</p>
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleClearAll}
+              className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 px-4 text-sm font-medium transition-colors"
+            >
+              クリア
+            </button>
+            <button
+              onClick={handleAnalyze}
+              disabled={isLoading}
+              className="flex-1 flex items-center justify-center gap-3 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white rounded-xl py-3 px-6 text-lg font-medium transition-colors"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  解析中...
+                </>
+              ) : (
+                "まとめて解析する"
+              )}
+            </button>
+          </div>
         </div>
       )}
     </div>
