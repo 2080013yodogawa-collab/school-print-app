@@ -1,27 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#38bdf8"/>
-      <stop offset="100%" style="stop-color:#0ea5e9"/>
-    </linearGradient>
-    <linearGradient id="cal" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#ffffff"/>
-      <stop offset="100%" style="stop-color:#f0f9ff"/>
-    </linearGradient>
-  </defs>
-  <!-- Rounded background -->
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- Calendar body -->
-  <rect x="96" y="140" width="320" height="280" rx="32" fill="url(#cal)"/>
-  <!-- Calendar top bar -->
-  <rect x="96" y="140" width="320" height="72" rx="32" fill="#0ea5e9"/>
-  <rect x="96" y="180" width="320" height="32" fill="#0ea5e9"/>
-  <!-- Calendar rings -->
-  <rect x="176" y="112" width="24" height="56" rx="12" fill="white"/>
-  <rect x="312" y="112" width="24" height="56" rx="12" fill="white"/>
-  <!-- Letter/envelope in calendar -->
-  <path d="M176 280 L256 330 L336 280" stroke="#38bdf8" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="176" y="280" width="160" height="100" rx="12" stroke="#38bdf8" stroke-width="14" fill="none"/>
-  <!-- Small heart accent -->
-  <path d="M370 370 C370 362 380 352 390 362 C400 352 410 362 410 370 C410 385 390 398 390 398 C390 398 370 385 370 370Z" fill="#f472b6" opacity="0.8"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- White background -->
+  <rect width="1024" height="1024" fill="white"/>
+
+  <!-- Calendar body - soft rounded -->
+  <rect x="172" y="220" width="680" height="620" rx="56" fill="white" stroke="#e2e8f0" stroke-width="6"/>
+
+  <!-- Calendar header bar - soft mint -->
+  <rect x="172" y="220" width="680" height="140" rx="56" fill="#86efac"/>
+  <rect x="172" y="300" width="680" height="60" fill="#86efac"/>
+
+  <!-- Calendar ring holders -->
+  <rect x="340" y="176" width="40" height="88" rx="20" fill="#4ade80"/>
+  <rect x="644" y="176" width="40" height="88" rx="20" fill="#4ade80"/>
+
+  <!-- Calendar date dots row 1 -->
+  <circle cx="320" cy="480" r="18" fill="#cbd5e1"/>
+  <circle cx="432" cy="480" r="18" fill="#cbd5e1"/>
+  <circle cx="544" cy="480" r="18" fill="#86efac"/>
+  <circle cx="656" cy="480" r="18" fill="#cbd5e1"/>
+
+  <!-- Calendar date dots row 2 -->
+  <circle cx="320" cy="568" r="18" fill="#cbd5e1"/>
+  <circle cx="432" cy="568" r="18" fill="#cbd5e1"/>
+  <circle cx="544" cy="568" r="18" fill="#cbd5e1"/>
+  <circle cx="656" cy="568" r="18" fill="#cbd5e1"/>
+
+  <!-- Calendar date dots row 3 -->
+  <circle cx="320" cy="656" r="18" fill="#cbd5e1"/>
+  <circle cx="432" cy="656" r="18" fill="#cbd5e1"/>
+
+  <!-- Letter/envelope floating from calendar - tilted -->
+  <g transform="translate(600, 580) rotate(-15)">
+    <!-- Envelope body -->
+    <rect x="0" y="0" width="200" height="140" rx="20" fill="#bae6fd" stroke="white" stroke-width="8"/>
+    <!-- Envelope flap -->
+    <path d="M8 8 L100 70 L192 8" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Small heart on envelope -->
+    <path d="M88 90 C88 83 96 76 104 84 C112 76 120 83 120 90 C120 102 104 112 104 112 C104 112 88 102 88 90Z" fill="#f9a8d4"/>
+  </g>
+
+  <!-- Small sparkle accents -->
+  <g fill="#fbbf24" opacity="0.7">
+    <path d="M760 200 L768 220 L760 240 L752 220Z"/>
+    <path d="M750 220 L770 212 L790 220 L770 228Z"/>
+  </g>
+  <g fill="#c4b5fd" opacity="0.6">
+    <path d="M220 680 L226 694 L220 708 L214 694Z"/>
+    <path d="M212 694 L228 688 L244 694 L228 700Z"/>
+  </g>
 </svg>
