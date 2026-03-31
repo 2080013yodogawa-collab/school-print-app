@@ -9,6 +9,7 @@ import CalendarSync from "@/components/CalendarSync";
 import NoticeList from "@/components/NoticeList";
 import ReminderSetting from "@/components/ReminderSetting";
 import PhotoViewer from "@/components/PhotoViewer";
+import SkeletonLoader from "@/components/SkeletonLoader";
 import type { AnalysisResult, PrintRecord } from "@/lib/types";
 import { loadRecords, addRecord, updateRecord, deleteRecord } from "@/lib/storage";
 import { checkAndNotify } from "@/lib/reminder";
@@ -26,7 +27,6 @@ export default function Home() {
 
   useEffect(() => {
     setRecords(loadRecords());
-    // Check reminders on load and every minute
     checkAndNotify();
     const interval = setInterval(checkAndNotify, 60000);
     return () => clearInterval(interval);
@@ -119,70 +119,87 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f8fafb]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+      <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-10">
+        <div className="max-w-md mx-auto px-4 py-3.5 flex items-center gap-3">
           {view === "detail" && (
             <button
               onClick={handleBack}
-              className="text-gray-500 hover:text-gray-700 -ml-1"
+              className="text-gray-400 hover:text-gray-600 -ml-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
-          <h1 className="text-lg font-bold text-gray-800">
-            おたより読み取り
-          </h1>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🏫</span>
+            <h1 className="text-lg font-bold text-gray-800">
+              おたより読み取り
+            </h1>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {view === "home" ? (
+        {isLoading ? (
+          <SkeletonLoader />
+        ) : view === "home" ? (
           <>
             {/* Upload Section */}
-            <div className="text-center mb-6">
-              <p className="text-2xl mb-2">📋</p>
-              <p className="text-gray-600 text-sm">
+            <div className="text-center mb-6 animate-fade-in">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-sky-50 rounded-2xl mb-3">
+                <span className="text-3xl">📋</span>
+              </div>
+              <p className="text-gray-500 text-sm leading-relaxed">
                 学校のプリントを撮影すると
                 <br />
                 予定と持ち物を自動で整理します
               </p>
             </div>
-            <PhotoUploader onAnalyze={handleAnalyze} isLoading={isLoading} />
+            <div className="animate-fade-in-delay-1">
+              <PhotoUploader onAnalyze={handleAnalyze} isLoading={isLoading} />
+            </div>
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-600 animate-fade-in">
                 {error}
               </div>
             )}
 
             {/* History */}
             {records.length > 0 && (
-              <div>
-                <h2 className="text-sm font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+              <div className="animate-fade-in-delay-2">
+                <h2 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-1.5 uppercase tracking-wider">
                   <Clock className="w-4 h-4" />
                   保存済みのプリント
                 </h2>
                 <div className="space-y-2">
-                  {records.map((record) => {
+                  {records.map((record, idx) => {
                     const itemCount = record.result.items.length;
                     const checkedCount = record.result.items.filter((i) => i.checked).length;
                     return (
                       <button
                         key={record.id}
                         onClick={() => handleOpenRecord(record)}
-                        className="w-full bg-white border border-gray-200 rounded-xl p-3.5 shadow-sm text-left hover:bg-gray-50 transition-colors flex items-center gap-3"
+                        className="w-full bg-white border border-gray-100 rounded-2xl p-4 shadow-sm text-left hover:shadow-md transition-all flex items-center gap-3 min-h-[44px]"
+                        style={{ animationDelay: `${idx * 0.05}s` }}
                       >
+                        <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <span className="text-lg">📄</span>
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-800 truncate">
                             {record.title}
                           </p>
-                          <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
+                          <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
                             <span>{formatDate(record.createdAt)}</span>
-                            <span>{record.result.events.length}件の予定</span>
+                            {record.result.events.length > 0 && (
+                              <span className="bg-sky-50 text-sky-600 px-1.5 py-0.5 rounded-full">
+                                {record.result.events.length}件の予定
+                              </span>
+                            )}
                             {itemCount > 0 && (
-                              <span>
+                              <span className="bg-peach-50 text-peach-500 px-1.5 py-0.5 rounded-full">
                                 持ち物 {checkedCount}/{itemCount}
                               </span>
                             )}
@@ -190,7 +207,7 @@ export default function Home() {
                         </div>
                         <button
                           onClick={(e) => handleDeleteRecord(record.id, e)}
-                          className="text-gray-300 hover:text-red-400 p-1 transition-colors"
+                          className="text-gray-200 hover:text-red-400 p-2 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -205,24 +222,36 @@ export default function Home() {
           <>
             {/* Original photos */}
             {activeRecord.images && activeRecord.images.length > 0 && (
-              <PhotoViewer images={activeRecord.images} />
+              <div className="animate-fade-in">
+                <PhotoViewer images={activeRecord.images} />
+              </div>
             )}
 
             {/* Results */}
-            <EventList events={activeRecord.result.events} />
-            <CheckList items={activeRecord.result.items} onToggle={handleToggleItem} />
-            <NoticeList notices={activeRecord.result.notices} />
-            <CalendarSync events={activeRecord.result.events} />
-            <ReminderSetting
-              events={activeRecord.result.events}
-              items={activeRecord.result.items}
-            />
+            <div className="animate-fade-in-delay-1">
+              <EventList events={activeRecord.result.events} />
+            </div>
+            <div className="animate-fade-in-delay-2">
+              <CheckList items={activeRecord.result.items} onToggle={handleToggleItem} />
+            </div>
+            <div className="animate-fade-in-delay-3">
+              <NoticeList notices={activeRecord.result.notices} />
+            </div>
+            <div className="animate-fade-in-delay-3">
+              <CalendarSync events={activeRecord.result.events} />
+            </div>
+            <div className="animate-fade-in-delay-3">
+              <ReminderSetting
+                events={activeRecord.result.events}
+                items={activeRecord.result.items}
+              />
+            </div>
 
             {/* Scan Another */}
-            <div className="pt-4">
+            <div className="pt-4 animate-fade-in-delay-3">
               <button
                 onClick={handleBack}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 text-sm font-medium transition-colors"
+                className="w-full bg-white hover:bg-gray-50 text-gray-500 border border-gray-200 rounded-2xl py-3.5 text-sm font-medium transition-colors min-h-[44px]"
               >
                 別のプリントを読み取る
               </button>
@@ -233,14 +262,14 @@ export default function Home() {
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl">
-            <div className="p-5 text-center">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Trash2 className="w-6 h-6 text-red-500" />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in">
+            <div className="p-6 text-center">
+              <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-7 h-7 text-red-400" />
               </div>
-              <h3 className="font-bold text-gray-800 mb-1">削除しますか？</h3>
-              <p className="text-sm text-gray-500">
+              <h3 className="font-bold text-gray-800 text-lg mb-1">削除しますか？</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
                 このプリントの解析結果が削除されます。
                 <br />
                 この操作は取り消せません。
@@ -249,13 +278,13 @@ export default function Home() {
             <div className="p-4 border-t border-gray-100 flex gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 text-sm font-medium transition-colors"
+                className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-2xl py-3.5 text-sm font-medium transition-colors min-h-[44px]"
               >
                 キャンセル
               </button>
               <button
                 onClick={confirmDelete}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-3 text-sm font-medium transition-colors"
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-2xl py-3.5 text-sm font-medium transition-colors min-h-[44px]"
               >
                 削除する
               </button>

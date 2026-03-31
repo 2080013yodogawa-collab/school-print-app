@@ -19,7 +19,6 @@ export default function ReminderSetting({ events, items }: ReminderSettingProps)
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [reminderStates, setReminderStates] = useState<Record<string, boolean>>({});
 
-  // Collect all items that have a date
   const remindableItems = [
     ...events.map((e) => ({ id: `reminder-${e.id}`, title: e.title, date: e.date })),
     ...items
@@ -31,7 +30,6 @@ export default function ReminderSetting({ events, items }: ReminderSettingProps)
     if (typeof window !== "undefined" && "Notification" in window) {
       setPermission(Notification.permission);
     }
-    // Load current reminder states
     const states: Record<string, boolean> = {};
     for (const item of remindableItems) {
       states[item.id] = hasReminder(item.id);
@@ -59,20 +57,22 @@ export default function ReminderSetting({ events, items }: ReminderSettingProps)
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-        <BellRing className="w-5 h-5 text-yellow-500" />
+      <h2 className="text-base font-bold text-gray-700 mb-3 flex items-center gap-2">
+        <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center">
+          <BellRing className="w-4 h-4 text-amber-500" />
+        </div>
         リマインド通知
       </h2>
 
       {permission !== "granted" ? (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
           <p className="text-sm text-gray-600 mb-3">
             期限の前日にブラウザ通知でお知らせします。
             通知の許可が必要です。
           </p>
           <button
             onClick={handleRequestPermission}
-            className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-800 rounded-lg py-2.5 text-sm font-medium transition-colors"
+            className="w-full bg-amber-400 hover:bg-amber-500 text-white rounded-xl py-3 text-sm font-medium transition-colors min-h-[44px]"
           >
             通知を許可する
           </button>
@@ -88,10 +88,14 @@ export default function ReminderSetting({ events, items }: ReminderSettingProps)
             <button
               key={item.id}
               onClick={() => handleToggle(item)}
-              className="w-full flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3 shadow-sm text-left hover:bg-gray-50 transition-colors"
+              className={`w-full flex items-center gap-3 border rounded-2xl p-3.5 text-left transition-all min-h-[44px] ${
+                reminderStates[item.id]
+                  ? "bg-amber-50 border-amber-200"
+                  : "bg-white border-gray-100 shadow-sm hover:shadow-md"
+              }`}
             >
               {reminderStates[item.id] ? (
-                <Bell className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                <Bell className="w-5 h-5 text-amber-500 flex-shrink-0" />
               ) : (
                 <BellOff className="w-5 h-5 text-gray-300 flex-shrink-0" />
               )}
@@ -102,9 +106,9 @@ export default function ReminderSetting({ events, items }: ReminderSettingProps)
                 <span className="text-xs text-gray-400">{item.date}</span>
               </div>
               <span
-                className={`text-xs px-2 py-0.5 rounded-full ${
+                className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                   reminderStates[item.id]
-                    ? "bg-yellow-100 text-yellow-700"
+                    ? "bg-amber-200 text-amber-700"
                     : "bg-gray-100 text-gray-400"
                 }`}
               >
@@ -112,7 +116,7 @@ export default function ReminderSetting({ events, items }: ReminderSettingProps)
               </span>
             </button>
           ))}
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-gray-400 mt-2 pl-1">
             前日と当日にブラウザ通知が届きます（アプリを開いているとき）
           </p>
         </div>

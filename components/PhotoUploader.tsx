@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Upload, X, Loader2, Plus } from "lucide-react";
+import { Camera, Upload, X, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 
 export interface ImageData {
@@ -54,7 +54,6 @@ export default function PhotoUploader({ onAnalyze, isLoading }: PhotoUploaderPro
         const compressed = await compressImage(file);
         newImages.push(compressed);
       } catch {
-        // fallback: read as-is
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
@@ -68,7 +67,6 @@ export default function PhotoUploader({ onAnalyze, isLoading }: PhotoUploaderPro
       }
     }
     setImages((prev) => [...prev, ...newImages]);
-    // Reset input
     e.target.value = "";
   };
 
@@ -92,14 +90,14 @@ export default function PhotoUploader({ onAnalyze, isLoading }: PhotoUploaderPro
         <div className="space-y-3">
           <button
             onClick={() => cameraInputRef.current?.click()}
-            className="w-full flex items-center justify-center gap-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl py-4 px-6 text-lg font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-3 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl py-4 px-6 text-lg font-medium transition-colors min-h-[56px] shadow-sm shadow-sky-200"
           >
             <Camera className="w-6 h-6" />
             カメラで撮影
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 rounded-xl py-4 px-6 text-lg font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-600 border-2 border-gray-200 border-dashed rounded-2xl py-4 px-6 text-lg font-medium transition-colors min-h-[56px]"
           >
             <Upload className="w-6 h-6" />
             写真を選択（複数可）
@@ -123,27 +121,25 @@ export default function PhotoUploader({ onAnalyze, isLoading }: PhotoUploaderPro
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Image previews grid */}
           <div className="grid grid-cols-2 gap-2">
             {images.map((img, i) => (
-              <div key={i} className="relative rounded-xl overflow-hidden border-2 border-gray-200 aspect-[3/4]">
+              <div key={i} className="relative rounded-2xl overflow-hidden border-2 border-gray-100 aspect-[3/4] shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.dataUrl} alt={`プリント ${i + 1}`} className="w-full h-full object-cover" />
                 <button
                   onClick={() => handleRemove(i)}
-                  className="absolute top-1.5 right-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
+                  className="absolute top-2 right-2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                 >
                   <X className="w-4 h-4" />
                 </button>
-                <span className="absolute bottom-1.5 left-1.5 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
+                <span className="absolute bottom-2 left-2 bg-black/40 text-white text-xs px-2.5 py-1 rounded-full">
                   {i + 1}枚目
                 </span>
               </div>
             ))}
-            {/* Add more button */}
             <button
               onClick={() => addFileInputRef.current?.click()}
-              className="rounded-xl border-2 border-dashed border-gray-300 aspect-[3/4] flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-gray-500 hover:border-gray-400 transition-colors"
+              className="rounded-2xl border-2 border-dashed border-gray-200 aspect-[3/4] flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-sky-500 hover:border-sky-300 transition-colors"
             >
               <Plus className="w-8 h-8" />
               <span className="text-xs">追加</span>
@@ -158,28 +154,21 @@ export default function PhotoUploader({ onAnalyze, isLoading }: PhotoUploaderPro
             className="hidden"
           />
 
-          <p className="text-center text-sm text-gray-500">{images.length}枚の写真を選択中</p>
+          <p className="text-center text-sm text-gray-400">{images.length}枚の写真を選択中</p>
 
           <div className="flex gap-2">
             <button
               onClick={handleClearAll}
-              className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 px-4 text-sm font-medium transition-colors"
+              className="flex-shrink-0 bg-white hover:bg-gray-50 text-gray-500 border border-gray-200 rounded-2xl py-3 px-4 text-sm font-medium transition-colors min-h-[44px]"
             >
               クリア
             </button>
             <button
               onClick={handleAnalyze}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-3 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white rounded-xl py-3 px-6 text-lg font-medium transition-colors"
+              className="flex-1 flex items-center justify-center gap-3 bg-mint-500 hover:bg-mint-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-2xl py-3 px-6 text-lg font-medium transition-colors min-h-[44px] shadow-sm shadow-green-200"
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  解析中...
-                </>
-              ) : (
-                "まとめて解析する"
-              )}
+              まとめて解析する
             </button>
           </div>
         </div>

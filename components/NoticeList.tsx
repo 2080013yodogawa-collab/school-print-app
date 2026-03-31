@@ -16,9 +16,11 @@ export default function NoticeList({ notices }: NoticeListProps) {
     <div className="w-full max-w-md mx-auto">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full text-lg font-bold text-gray-800 mb-3 flex items-center gap-2"
+        className="w-full text-base font-bold text-gray-700 mb-3 flex items-center gap-2 min-h-[44px]"
       >
-        <MessageCircle className="w-5 h-5 text-purple-500" />
+        <div className="w-7 h-7 bg-lavender-100 rounded-lg flex items-center justify-center">
+          <MessageCircle className="w-4 h-4 text-lavender-500" />
+        </div>
         連絡事項
         <span className="text-sm font-normal text-gray-400 ml-1">{notices.length}件</span>
         <span className="ml-auto">
@@ -34,9 +36,9 @@ export default function NoticeList({ notices }: NoticeListProps) {
           {notices.map((notice, i) => (
             <div
               key={i}
-              className="bg-purple-50 border border-purple-100 rounded-xl p-4"
+              className="bg-lavender-50 border border-lavender-100 rounded-2xl p-4"
             >
-              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+              <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
                 {notice}
               </p>
             </div>

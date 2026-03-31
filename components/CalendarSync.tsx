@@ -37,15 +37,12 @@ function generateICSContent(events: SchoolEvent[]): string {
     if (event.time) {
       const timeFormatted = event.time.replace(":", "") + "00";
       lines.push(`DTSTART;TZID=Asia/Tokyo:${dateFormatted}T${timeFormatted}`);
-      // End time = start time + 1 hour
       const [h, m] = event.time.split(":").map(Number);
       const endH = String(h + 1).padStart(2, "0");
       const endTime = `${endH}${String(m).padStart(2, "0")}00`;
       lines.push(`DTEND;TZID=Asia/Tokyo:${dateFormatted}T${endTime}`);
     } else {
-      // All-day event
       lines.push(`DTSTART;VALUE=DATE:${dateFormatted}`);
-      // For all-day events, DTEND is the next day
       const nextDay = new Date(event.date + "T00:00:00");
       nextDay.setDate(nextDay.getDate() + 1);
       const nextDayStr = nextDay.toISOString().split("T")[0].replace(/-/g, "");
@@ -87,7 +84,6 @@ function buildGoogleCalendarUrl(event: SchoolEvent): string {
     const endTime = `${endH}${String(m).padStart(2, "0")}00`;
     params.set("dates", `${startDate}T${startTime}/${startDate}T${endTime}`);
   } else {
-    // All-day event
     const startDate = event.date.replace(/-/g, "");
     const nextDay = new Date(event.date + "T00:00:00");
     nextDay.setDate(nextDay.getDate() + 1);
@@ -105,6 +101,7 @@ function buildGoogleCalendarUrl(event: SchoolEvent): string {
 export default function CalendarSync({ events }: CalendarSyncProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
+  const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
 
   if (events.length === 0) return null;
 
@@ -132,8 +129,6 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
     setShowConfirm(true);
   };
 
-  const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
-
   const handleMarkRegistered = (id: string) => {
     setRegisteredIds((prev) => new Set(prev).add(id));
   };
@@ -148,35 +143,35 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
 
   return (
     <div className="w-full max-w-md mx-auto space-y-2">
-      <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-        <CalendarPlus className="w-5 h-5 text-green-500" />
+      <h2 className="text-base font-bold text-gray-700 mb-3 flex items-center gap-2">
+        <div className="w-7 h-7 bg-mint-100 rounded-lg flex items-center justify-center">
+          <CalendarPlus className="w-4 h-4 text-mint-500" />
+        </div>
         Googleカレンダーに登録
       </h2>
 
-      {/* Select all toggle */}
       <button
         onClick={selectAll}
-        className="text-sm text-blue-500 hover:text-blue-600 font-medium mb-1"
+        className="text-sm text-sky-500 hover:text-sky-600 font-medium mb-1 min-h-[44px]"
       >
         {selected.size === events.length ? "すべて解除" : "すべて選択"}
       </button>
 
-      {/* Event checkboxes */}
       <div className="space-y-1.5">
         {events.map((event) => (
           <button
             key={event.id}
             onClick={() => toggleSelect(event.id)}
-            className={`w-full flex items-center gap-3 border rounded-xl p-3 shadow-sm text-left transition-colors ${
+            className={`w-full flex items-center gap-3 border rounded-2xl p-3.5 text-left transition-all min-h-[44px] ${
               selected.has(event.id)
-                ? "bg-green-50 border-green-300"
-                : "bg-white border-gray-200 hover:bg-gray-50"
+                ? "bg-mint-50 border-mint-500/30 shadow-sm"
+                : "bg-white border-gray-100 hover:shadow-md"
             }`}
           >
             <div
               className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                 selected.has(event.id)
-                  ? "bg-green-500 border-green-500"
+                  ? "bg-mint-500 border-mint-500"
                   : "border-gray-300"
               }`}
             >
@@ -193,20 +188,18 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
         ))}
       </div>
 
-      {/* Register button */}
       <button
         onClick={handleRegister}
         disabled={selected.size === 0}
-        className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl py-3 px-4 text-sm font-medium transition-colors mt-3"
+        className="w-full flex items-center justify-center gap-2 bg-mint-500 hover:bg-mint-600 disabled:bg-gray-100 disabled:text-gray-400 text-white rounded-2xl py-3.5 px-4 text-sm font-medium transition-colors mt-3 min-h-[44px] shadow-sm shadow-green-200"
       >
         <CalendarPlus className="w-4 h-4" />
         選択した予定をGoogleカレンダーに登録（{selected.size}件）
       </button>
 
-      {/* Download ICS */}
       <button
         onClick={() => downloadICS(selected.size > 0 ? selectedEvents : events)}
-        className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl py-3 px-4 text-sm font-medium transition-colors"
+        className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-2xl py-3.5 px-4 text-sm font-medium transition-colors min-h-[44px]"
       >
         <Download className="w-4 h-4" />
         .icsファイルでダウンロード
@@ -214,19 +207,19 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
 
       {/* Confirmation Modal */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto shadow-xl">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl animate-fade-in">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="font-bold text-gray-800">Googleカレンダーに登録</h3>
               <button
                 onClick={handleCloseConfirm}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 space-y-2">
-              <p className="text-sm text-gray-500 mb-3">
+              <p className="text-sm text-gray-400 mb-3">
                 各予定のリンクをタップしてGoogleカレンダーに登録してください：
               </p>
               {selectedEvents.map((event) => (
@@ -236,35 +229,37 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleMarkRegistered(event.id)}
-                  className={`block rounded-xl p-3 border transition-colors ${
+                  className={`block rounded-2xl p-3.5 border transition-all min-h-[44px] ${
                     registeredIds.has(event.id)
-                      ? "bg-green-50 border-green-200"
-                      : "bg-white border-gray-200 hover:bg-blue-50"
+                      ? "bg-mint-50 border-mint-200"
+                      : "bg-white border-gray-100 hover:bg-sky-50 hover:border-sky-200"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
                         registeredIds.has(event.id)
-                          ? "bg-green-500"
-                          : "bg-blue-500"
+                          ? "bg-mint-500"
+                          : "bg-sky-500"
                       }`}
                     >
                       {registeredIds.has(event.id) ? (
-                        <Check className="w-3.5 h-3.5 text-white" />
+                        <Check className="w-4 h-4 text-white" />
                       ) : (
-                        <CalendarPlus className="w-3 h-3 text-white" />
+                        <CalendarPlus className="w-4 h-4 text-white" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-gray-800">{event.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-gray-400 mt-0.5">
                         {formatDateJP(event.date)}
                         {event.time ? ` ${event.time}` : "（終日予定）"}
                         {event.location ? ` / ${event.location}` : ""}
                       </p>
                     </div>
-                    <span className="text-xs text-gray-400">
+                    <span className={`text-xs font-medium ${
+                      registeredIds.has(event.id) ? "text-mint-600" : "text-sky-500"
+                    }`}>
                       {registeredIds.has(event.id) ? "済" : "登録"}
                     </span>
                   </div>
@@ -274,7 +269,7 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
             <div className="p-4 border-t border-gray-100">
               <button
                 onClick={handleCloseConfirm}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 text-sm font-medium transition-colors"
+                className="w-full bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-2xl py-3.5 text-sm font-medium transition-colors min-h-[44px]"
               >
                 閉じる
               </button>
