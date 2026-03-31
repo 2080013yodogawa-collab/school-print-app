@@ -21,3 +21,10 @@ export interface AnalysisResult {
   notices: string[];
   rawText?: string;
 }
+
+export interface PrintRecord {
+  id: string;
+  title: string;
+  createdAt: string;
+  result: AnalysisResult;
+}

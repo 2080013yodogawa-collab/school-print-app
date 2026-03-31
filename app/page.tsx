@@ -1,18 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import PhotoUploader from "@/components/PhotoUploader";
 import EventList from "@/components/EventList";
 import CheckList from "@/components/CheckList";
 import CalendarSync from "@/components/CalendarSync";
 import NoticeList from "@/components/NoticeList";
-import type { AnalysisResult } from "@/lib/types";
-import { ArrowLeft } from "lucide-react";
+import type { AnalysisResult, PrintRecord } from "@/lib/types";
+import { loadRecords, addRecord, updateRecord, deleteRecord } from "@/lib/storage";
+import { ArrowLeft, Trash2, Clock } from "lucide-react";
+
+type View = "home" | "detail";
 
 export default function Home() {
+  const [view, setView] = useState<View>("home");
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [records, setRecords] = useState<PrintRecord[]>([]);
+  const [activeRecord, setActiveRecord] = useState<PrintRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRecords(loadRecords());
+  }, []);
 
   const handleAnalyze = async (image: string, mimeType: string) => {
     setIsLoading(true);
@@ -25,13 +34,23 @@ export default function Home() {
         body: JSON.stringify({ image, mimeType }),
       });
 
-      const data = await response.json();
+      const data: AnalysisResult = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "解析に失敗しました");
+        throw new Error((data as unknown as { error: string }).error || "解析に失敗しました");
       }
 
-      setResult(data);
+      const record: PrintRecord = {
+        id: `print-${Date.now()}`,
+        title: data.events[0]?.title || data.notices[0]?.slice(0, 20) || "プリント",
+        createdAt: new Date().toISOString(),
+        result: data,
+      };
+
+      addRecord(record);
+      setRecords(loadRecords());
+      setActiveRecord(record);
+      setView("detail");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -39,29 +58,56 @@ export default function Home() {
     }
   };
 
-  const handleToggleItem = (id: string) => {
-    if (!result) return;
-    setResult({
-      ...result,
-      items: result.items.map((item) =>
-        item.id === id ? { ...item, checked: !item.checked } : item
-      ),
-    });
+  const handleToggleItem = useCallback((id: string) => {
+    if (!activeRecord) return;
+    const updated: PrintRecord = {
+      ...activeRecord,
+      result: {
+        ...activeRecord.result,
+        items: activeRecord.result.items.map((item) =>
+          item.id === id ? { ...item, checked: !item.checked } : item
+        ),
+      },
+    };
+    updateRecord(activeRecord.id, updated);
+    setActiveRecord(updated);
+    setRecords(loadRecords());
+  }, [activeRecord]);
+
+  const handleOpenRecord = (record: PrintRecord) => {
+    setActiveRecord(record);
+    setView("detail");
   };
 
-  const handleReset = () => {
-    setResult(null);
+  const handleDeleteRecord = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    deleteRecord(id);
+    setRecords(loadRecords());
+    if (activeRecord?.id === id) {
+      setActiveRecord(null);
+      setView("home");
+    }
+  };
+
+  const handleBack = () => {
+    setActiveRecord(null);
+    setView("home");
     setError(null);
   };
+
+  function formatDate(iso: string) {
+    const d = new Date(iso);
+    return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          {result && (
+          {view === "detail" && (
             <button
-              onClick={handleReset}
+              onClick={handleBack}
               className="text-gray-500 hover:text-gray-700 -ml-1"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -75,7 +121,7 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {!result ? (
+        {view === "home" ? (
           <>
             {/* Upload Section */}
             <div className="text-center mb-6">
@@ -92,26 +138,70 @@ export default function Home() {
                 {error}
               </div>
             )}
+
+            {/* History */}
+            {records.length > 0 && (
+              <div>
+                <h2 className="text-sm font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
+                  保存済みのプリント
+                </h2>
+                <div className="space-y-2">
+                  {records.map((record) => {
+                    const itemCount = record.result.items.length;
+                    const checkedCount = record.result.items.filter((i) => i.checked).length;
+                    return (
+                      <button
+                        key={record.id}
+                        onClick={() => handleOpenRecord(record)}
+                        className="w-full bg-white border border-gray-200 rounded-xl p-3.5 shadow-sm text-left hover:bg-gray-50 transition-colors flex items-center gap-3"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-800 truncate">
+                            {record.title}
+                          </p>
+                          <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
+                            <span>{formatDate(record.createdAt)}</span>
+                            <span>{record.result.events.length}件の予定</span>
+                            {itemCount > 0 && (
+                              <span>
+                                持ち物 {checkedCount}/{itemCount}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => handleDeleteRecord(record.id, e)}
+                          className="text-gray-300 hover:text-red-400 p-1 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
-        ) : (
+        ) : activeRecord ? (
           <>
             {/* Results */}
-            <EventList events={result.events} />
-            <CheckList items={result.items} onToggle={handleToggleItem} />
-            <NoticeList notices={result.notices} />
-            <CalendarSync events={result.events} />
+            <EventList events={activeRecord.result.events} />
+            <CheckList items={activeRecord.result.items} onToggle={handleToggleItem} />
+            <NoticeList notices={activeRecord.result.notices} />
+            <CalendarSync events={activeRecord.result.events} />
 
             {/* Scan Another */}
             <div className="pt-4">
               <button
-                onClick={handleReset}
+                onClick={handleBack}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 text-sm font-medium transition-colors"
               >
                 別のプリントを読み取る
               </button>
             </div>
           </>
-        )}
+        ) : null}
       </main>
     </div>
   );
