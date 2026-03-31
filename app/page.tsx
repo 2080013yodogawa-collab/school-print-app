@@ -182,7 +182,7 @@ export default function Home() {
         ) : view === "home" ? (
           <>
             {/* Upload Section */}
-            <div className="text-center mb-6 animate-fade-in">
+            <div className="text-center mb-4 animate-fade-in">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-sky-50 rounded-2xl mb-3">
                 <span className="text-3xl">📋</span>
               </div>
@@ -193,15 +193,13 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Child selector for upload */}
+            {/* Child segment control */}
             {children.length > 0 && (
               <div className="animate-fade-in">
                 <ChildSelector
                   children={children}
                   selected={selectedChildId}
                   onSelect={setSelectedChildId}
-                  showAll={false}
-                  label="誰のプリント？"
                 />
               </div>
             )}
@@ -223,14 +221,33 @@ export default function Home() {
                   保存済みのプリント
                 </h2>
 
-                {/* Child filter */}
+                {/* Child filter chips */}
                 {children.length > 0 && (
-                  <div className="mb-3">
-                    <ChildSelector
-                      children={children}
-                      selected={filterChildId}
-                      onSelect={setFilterChildId}
-                    />
+                  <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+                    <button
+                      onClick={() => setFilterChildId(null)}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all min-h-[32px] ${
+                        filterChildId === null
+                          ? "bg-gray-800 text-white"
+                          : "bg-white text-gray-400 border border-gray-200"
+                      }`}
+                    >
+                      全員
+                    </button>
+                    {children.map((child) => (
+                      <button
+                        key={child.id}
+                        onClick={() => setFilterChildId(child.id)}
+                        className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all min-h-[32px] ${
+                          filterChildId === child.id
+                            ? "text-white"
+                            : "bg-white border border-gray-200 opacity-60 hover:opacity-100"
+                        }`}
+                        style={filterChildId === child.id ? { backgroundColor: child.color } : { color: child.color }}
+                      >
+                        {child.name}
+                      </button>
+                    ))}
                   </div>
                 )}
 
