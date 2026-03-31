@@ -8,24 +8,54 @@ interface PhotoUploaderProps {
   isLoading: boolean;
 }
 
+function compressImage(file: File, maxWidth = 1600, quality = 0.7): Promise<{ base64: string; mimeType: string; dataUrl: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas not supported"));
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      const base64 = dataUrl.split(",")[1];
+      resolve({ base64, mimeType: "image/jpeg", dataUrl });
+    };
+    img.onerror = () => reject(new Error("画像の読み込みに失敗しました"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 export default function PhotoUploader({ onAnalyze, isLoading }: PhotoUploaderProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setPreview(result);
-      const base64 = result.split(",")[1];
-      setImageData({ base64, mimeType: file.type });
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file);
+      setPreview(compressed.dataUrl);
+      setImageData({ base64: compressed.base64, mimeType: compressed.mimeType });
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        setPreview(result);
+        const base64 = result.split(",")[1];
+        setImageData({ base64, mimeType: file.type });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleClear = () => {

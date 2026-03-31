@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 
+export const maxDuration = 60;
+
 const client = new Anthropic();
 
 const SYSTEM_PROMPT = `あなたは小学校の配布プリント（おたより・学校便り・学年便り）を解析するアシスタントです。
