@@ -12,7 +12,14 @@ export const metadata: Metadata = {
   title: "おたよりカレンダー",
   description: "学校のおたよりを撮影するだけで、予定や持ち物を自動で整理。家族のスケジュール管理をもっと楽に。",
   icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>",
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "おたより",
   },
 };
 

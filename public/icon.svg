@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#38bdf8"/>
+      <stop offset="100%" style="stop-color:#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="cal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#f0f9ff"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Calendar body -->
+  <rect x="96" y="140" width="320" height="280" rx="32" fill="url(#cal)"/>
+  <!-- Calendar top bar -->
+  <rect x="96" y="140" width="320" height="72" rx="32" fill="#0ea5e9"/>
+  <rect x="96" y="180" width="320" height="32" fill="#0ea5e9"/>
+  <!-- Calendar rings -->
+  <rect x="176" y="112" width="24" height="56" rx="12" fill="white"/>
+  <rect x="312" y="112" width="24" height="56" rx="12" fill="white"/>
+  <!-- Letter/envelope in calendar -->
+  <path d="M176 280 L256 330 L336 280" stroke="#38bdf8" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="176" y="280" width="160" height="100" rx="12" stroke="#38bdf8" stroke-width="14" fill="none"/>
+  <!-- Small heart accent -->
+  <path d="M370 370 C370 362 380 352 390 362 C400 352 410 362 410 370 C410 385 390 398 390 398 C390 398 370 385 370 370Z" fill="#f472b6" opacity="0.8"/>
+</svg>
