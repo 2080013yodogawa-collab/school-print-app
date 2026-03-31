@@ -5,9 +5,32 @@ export const maxDuration = 60;
 
 const client = new Anthropic();
 
-const SYSTEM_PROMPT = `あなたは小学校の配布プリント（おたより・学校便り・学年便り）を解析するアシスタントです。
+function buildSystemPrompt(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  // School year: April to March
+  const schoolYear = month >= 4 ? year : year - 1;
+  const todayStr = now.toISOString().split("T")[0];
+
+  return `あなたは小学校の配布プリント（おたより・学校便り・学年便り）を解析するアシスタントです。
 写真に写っているプリントの内容を読み取り、以下の情報を抽出してJSON形式で返してください。
 複数枚の写真が送られた場合は、すべての写真の内容をまとめて1つのJSONで返してください。
+
+■ 今日の日付: ${todayStr}
+■ 現在の年度: ${schoolYear}年度（${schoolYear}年4月〜${schoolYear + 1}年3月）
+
+■ 日付の変換ルール（重要）:
+- すべての日付は必ず YYYY-MM-DD 形式（ISO 8601）で出力してください
+- 「4月10日」→ "${schoolYear}-04-10"
+- 「4/10」→ "${schoolYear}-04-10"
+- 「10日(水)」→ 文脈から月を推測して "${schoolYear}-XX-10"
+- 1〜3月の日付は翌年（${schoolYear + 1}年）になります
+  例: 「1月15日」→ "${schoolYear + 1}-01-15"
+- 4〜12月の日付は今年度（${schoolYear}年）になります
+  例: 「9月5日」→ "${schoolYear}-09-05"
+- プリントに年が明記されている場合はその年を使用してください
+- 曜日が書かれている場合、日付と曜日が一致するか確認してください
 
 出力形式:
 {
@@ -31,11 +54,42 @@ const SYSTEM_PROMPT = `あなたは小学校の配布プリント（おたより
 }
 
 注意事項:
-- 日付が「○月○日」のように年が書かれていない場合、現在の年度から推測してください（4月〜3月が1年度）
-- 曜日の情報があれば、日付の正確性を確認してください
 - 「持ってくるもの」「用意するもの」「準備物」などは items に分類してください
 - 連絡事項（notices）にはお知らせ、注意事項、お願いなどをできるだけ詳しく含めてください
 - 必ず有効なJSONのみを返してください。説明文は不要です`;
+}
+
+/**
+ * Normalize a date string to YYYY-MM-DD format.
+ * Handles various Japanese date formats that might slip through the AI.
+ */
+function normalizeDate(dateStr: string): string {
+  if (!dateStr) return dateStr;
+
+  // Already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const schoolYear = month >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+
+  // Match "YYYY年MM月DD日" or "YYYY/MM/DD"
+  let m = dateStr.match(/(\d{4})[年/\-.](\d{1,2})[月/\-.](\d{1,2})/);
+  if (m) {
+    return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  }
+
+  // Match "MM月DD日" or "MM/DD"
+  m = dateStr.match(/(\d{1,2})[月/](\d{1,2})/);
+  if (m) {
+    const mon = parseInt(m[1]);
+    const day = parseInt(m[2]);
+    const year = mon >= 1 && mon <= 3 ? schoolYear + 1 : schoolYear;
+    return `${year}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  return dateStr;
+}
 
 type ImageContent = {
   type: "image";
@@ -47,7 +101,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Support both single image and multiple images
     const images: { base64: string; mimeType: string }[] = body.images
       ? body.images
       : body.image
@@ -80,7 +133,7 @@ export async function POST(request: NextRequest) {
       model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,
       messages: [{ role: "user", content }],
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(),
     });
 
     const textContent = response.content.find((c) => c.type === "text");
@@ -95,15 +148,24 @@ export async function POST(request: NextRequest) {
 
     const result = JSON.parse(jsonMatch[0]);
 
-    const events = (result.events || []).map((e: Record<string, unknown>, i: number) => ({
-      ...e,
-      id: `event-${i}`,
-    }));
-    const items = (result.items || []).map((item: Record<string, unknown>, i: number) => ({
-      ...item,
-      id: `item-${i}`,
-      checked: false,
-    }));
+    // Normalize dates and add IDs
+    const events = (result.events || []).map((e: Record<string, unknown>, i: number) => {
+      const rawDate = String(e.date || "");
+      const normalized = normalizeDate(rawDate);
+      if (rawDate !== normalized) {
+        console.log(`[Date Normalize] event "${e.title}": "${rawDate}" → "${normalized}"`);
+      }
+      return { ...e, date: normalized, id: `event-${i}` };
+    });
+
+    const items = (result.items || []).map((item: Record<string, unknown>, i: number) => {
+      const rawDeadline = String(item.deadline || "");
+      const normalized = rawDeadline ? normalizeDate(rawDeadline) : undefined;
+      if (rawDeadline && rawDeadline !== normalized) {
+        console.log(`[Date Normalize] item "${item.name}": "${rawDeadline}" → "${normalized}"`);
+      }
+      return { ...item, deadline: normalized, id: `item-${i}`, checked: false };
+    });
 
     return Response.json({
       events,
