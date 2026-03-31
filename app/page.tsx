@@ -196,12 +196,12 @@ export default function Home() {
             {/* Child selector for upload */}
             {children.length > 0 && (
               <div className="animate-fade-in">
-                <p className="text-xs text-gray-400 mb-2">だれのプリント？</p>
                 <ChildSelector
                   children={children}
                   selected={selectedChildId}
                   onSelect={setSelectedChildId}
                   showAll={false}
+                  label="誰のプリント？"
                 />
               </div>
             )}
