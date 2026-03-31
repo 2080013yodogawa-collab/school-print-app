@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarPlus, Download, Check, X } from "lucide-react";
+import { CalendarPlus, Download, Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import type { SchoolEvent } from "@/lib/types";
 
 interface CalendarSyncProps {
@@ -26,14 +26,14 @@ function generateICSContent(events: SchoolEvent[], childName?: string): string {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//School Print App//JP",
+    "PRODID:-//Otayori Calendar//JP",
     "CALSCALE:GREGORIAN",
   ];
 
   for (const event of events) {
     const dateFormatted = event.date.replace(/-/g, "");
     lines.push("BEGIN:VEVENT");
-    lines.push(`UID:${event.id}@school-print-app`);
+    lines.push(`UID:${event.id}-${Date.now()}@otayori-calendar`);
 
     if (event.time) {
       const timeFormatted = event.time.replace(":", "") + "00";
@@ -103,8 +103,8 @@ function buildGoogleCalendarUrl(event: SchoolEvent, childName?: string): string 
 
 export default function CalendarSync({ events, childName }: CalendarSyncProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
+  const [showIndividual, setShowIndividual] = useState(false);
+  const [done, setDone] = useState(false);
 
   if (events.length === 0) return null;
 
@@ -115,6 +115,7 @@ export default function CalendarSync({ events, childName }: CalendarSyncProps) {
       else next.add(id);
       return next;
     });
+    setDone(false);
   };
 
   const selectAll = () => {
@@ -123,25 +124,15 @@ export default function CalendarSync({ events, childName }: CalendarSyncProps) {
     } else {
       setSelected(new Set(events.map((e) => e.id)));
     }
+    setDone(false);
   };
 
   const selectedEvents = events.filter((e) => selected.has(e.id));
 
-  const handleRegister = () => {
-    if (selectedEvents.length === 0) return;
-    setShowConfirm(true);
-  };
-
-  const handleMarkRegistered = (id: string) => {
-    setRegisteredIds((prev) => new Set(prev).add(id));
-  };
-
-  const handleCloseConfirm = () => {
-    setShowConfirm(false);
-    setRegisteredIds(new Set());
-    if (registeredIds.size > 0) {
-      setSelected(new Set());
-    }
+  const handleBulkRegister = () => {
+    const eventsToRegister = selected.size > 0 ? selectedEvents : events;
+    downloadICS(eventsToRegister, childName);
+    setDone(true);
   };
 
   return (
@@ -150,9 +141,10 @@ export default function CalendarSync({ events, childName }: CalendarSyncProps) {
         <div className="w-7 h-7 bg-mint-100 rounded-lg flex items-center justify-center">
           <CalendarPlus className="w-4 h-4 text-mint-500" />
         </div>
-        Googleカレンダーに登録
+        カレンダーに登録
       </h2>
 
+      {/* Select all toggle */}
       <button
         onClick={selectAll}
         className="text-sm text-sky-500 hover:text-sky-600 font-medium mb-1 min-h-[44px]"
@@ -160,6 +152,7 @@ export default function CalendarSync({ events, childName }: CalendarSyncProps) {
         {selected.size === events.length ? "すべて解除" : "すべて選択"}
       </button>
 
+      {/* Event checkboxes */}
       <div className="space-y-1.5">
         {events.map((event) => (
           <button
@@ -191,93 +184,71 @@ export default function CalendarSync({ events, childName }: CalendarSyncProps) {
         ))}
       </div>
 
+      {/* Primary: Bulk register via .ics */}
       <button
-        onClick={handleRegister}
-        disabled={selected.size === 0}
-        className="w-full flex items-center justify-center gap-2 bg-mint-500 hover:bg-mint-600 disabled:bg-gray-100 disabled:text-gray-400 text-white rounded-2xl py-3.5 px-4 text-sm font-medium transition-colors mt-3 min-h-[44px] shadow-sm shadow-green-200"
+        onClick={handleBulkRegister}
+        className={`w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 px-4 text-sm font-medium transition-colors mt-3 min-h-[44px] ${
+          done
+            ? "bg-mint-50 text-mint-600 border-2 border-mint-300"
+            : "bg-mint-500 hover:bg-mint-600 text-white shadow-sm shadow-green-200"
+        }`}
       >
-        <CalendarPlus className="w-4 h-4" />
-        選択した予定をGoogleカレンダーに登録（{selected.size}件）
+        {done ? (
+          <>
+            <Check className="w-4 h-4" />
+            ダウンロード済み — ファイルを開いて登録してください
+          </>
+        ) : (
+          <>
+            <CalendarPlus className="w-4 h-4" />
+            {selected.size > 0
+              ? `選択した${selected.size}件をまとめてカレンダーに登録`
+              : `全${events.length}件をまとめてカレンダーに登録`
+            }
+          </>
+        )}
       </button>
 
+      {done && (
+        <p className="text-xs text-gray-400 text-center leading-relaxed">
+          ダウンロードされた .ics ファイルを開くと
+          <br />
+          カレンダーアプリにまとめて追加されます
+        </p>
+      )}
+
+      {/* Secondary: Individual Google Calendar links */}
       <button
-        onClick={() => downloadICS(selected.size > 0 ? selectedEvents : events, childName)}
-        className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-2xl py-3.5 px-4 text-sm font-medium transition-colors min-h-[44px]"
+        onClick={() => setShowIndividual(!showIndividual)}
+        className="w-full flex items-center justify-center gap-1 text-xs text-gray-400 hover:text-gray-500 py-2 min-h-[44px]"
       >
-        <Download className="w-4 h-4" />
-        .icsファイルでダウンロード
+        1件ずつGoogle Calendarに登録する場合
+        {showIndividual ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
       </button>
 
-      {/* Confirmation Modal */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl animate-fade-in">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-bold text-gray-800">Googleカレンダーに登録</h3>
-              <button
-                onClick={handleCloseConfirm}
-                className="text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 space-y-2">
-              <p className="text-sm text-gray-400 mb-3">
-                各予定のリンクをタップしてGoogleカレンダーに登録してください：
-              </p>
-              {selectedEvents.map((event) => (
-                <a
-                  key={event.id}
-                  href={buildGoogleCalendarUrl(event, childName)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => handleMarkRegistered(event.id)}
-                  className={`block rounded-2xl p-3.5 border transition-all min-h-[44px] ${
-                    registeredIds.has(event.id)
-                      ? "bg-mint-50 border-mint-200"
-                      : "bg-white border-gray-100 hover:bg-sky-50 hover:border-sky-200"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                        registeredIds.has(event.id)
-                          ? "bg-mint-500"
-                          : "bg-sky-500"
-                      }`}
-                    >
-                      {registeredIds.has(event.id) ? (
-                        <Check className="w-4 h-4 text-white" />
-                      ) : (
-                        <CalendarPlus className="w-4 h-4 text-white" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-gray-800">{event.title}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {formatDateJP(event.date)}
-                        {event.time ? ` ${event.time}` : "（終日予定）"}
-                        {event.location ? ` / ${event.location}` : ""}
-                      </p>
-                    </div>
-                    <span className={`text-xs font-medium ${
-                      registeredIds.has(event.id) ? "text-mint-600" : "text-sky-500"
-                    }`}>
-                      {registeredIds.has(event.id) ? "済" : "登録"}
-                    </span>
-                  </div>
-                </a>
-              ))}
-            </div>
-            <div className="p-4 border-t border-gray-100">
-              <button
-                onClick={handleCloseConfirm}
-                className="w-full bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-2xl py-3.5 text-sm font-medium transition-colors min-h-[44px]"
-              >
-                閉じる
-              </button>
-            </div>
-          </div>
+      {showIndividual && (
+        <div className="space-y-1.5">
+          {events.map((event) => (
+            <a
+              key={event.id}
+              href={buildGoogleCalendarUrl(event, childName)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-2xl p-3 border border-gray-100 hover:bg-sky-50 hover:border-sky-200 transition-all min-h-[44px]"
+            >
+              <div className="flex items-center gap-3">
+                <CalendarPlus className="w-4 h-4 text-sky-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-700 truncate">{event.title}</p>
+                  <p className="text-xs text-gray-400">
+                    {formatDateJP(event.date)}
+                    {event.time ? ` ${event.time}` : "（終日）"}
+                  </p>
+                </div>
+                <span className="text-xs text-sky-500">登録</span>
+              </div>
+            </a>
+          ))}
         </div>
       )}
     </div>
