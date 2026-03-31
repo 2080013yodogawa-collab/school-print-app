@@ -161,9 +161,9 @@ export default function Home() {
             </button>
           )}
           <div className="flex items-center gap-2 flex-1">
-            <span className="text-2xl">🏫</span>
-            <h1 className="text-lg font-bold text-gray-800">
-              おたより読み取り
+            <span className="text-xl">📅</span>
+            <h1 className="text-lg font-bold text-sky-600">
+              おたよりカレンダー
             </h1>
           </div>
         </div>
@@ -178,12 +178,14 @@ export default function Home() {
             {/* Upload Section */}
             <div className="text-center mb-4 animate-fade-in">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-sky-50 rounded-2xl mb-3">
-                <span className="text-3xl">📋</span>
+                <span className="text-3xl">📅</span>
               </div>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                学校のプリントを撮影すると
+              <p className="text-gray-600 text-sm leading-relaxed">
+                学校のおたよりを撮影するだけで
                 <br />
-                予定と持ち物を自動で整理します
+                予定や持ち物を自動で整理。
+                <br />
+                <span className="text-sky-500 font-medium">家族のスケジュール管理をもっと楽に。</span>
               </p>
             </div>
 
@@ -387,6 +389,13 @@ export default function Home() {
           </>
         ) : null}
       </main>
+
+      {/* Footer */}
+      <footer className="max-w-md mx-auto px-4 py-6 text-center">
+        <p className="text-xs text-gray-300">
+          © 2026 おたよりカレンダー
+        </p>
+      </footer>
 
       {/* Child Settings Modal */}
       {showChildSettings && (

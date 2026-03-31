@@ -9,8 +9,11 @@ const zenMaru = Zen_Maru_Gothic({
 });
 
 export const metadata: Metadata = {
-  title: "おたより読み取り",
-  description: "学校のプリントを撮影して予定と持ち物を整理",
+  title: "おたよりカレンダー",
+  description: "学校のおたよりを撮影するだけで、予定や持ち物を自動で整理。家族のスケジュール管理をもっと楽に。",
+  icons: {
+    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>",
+  },
 };
 
 export default function RootLayout({
