@@ -166,12 +166,6 @@ export default function Home() {
               おたより読み取り
             </h1>
           </div>
-          <button
-            onClick={() => setShowChildSettings(true)}
-            className="text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
         </div>
       </header>
 
@@ -194,15 +188,33 @@ export default function Home() {
             </div>
 
             {/* Child segment control */}
-            {children.length > 0 && (
-              <div className="animate-fade-in">
-                <ChildSelector
-                  children={children}
-                  selected={selectedChildId}
-                  onSelect={setSelectedChildId}
-                />
-              </div>
-            )}
+            <div className="animate-fade-in">
+              {children.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <ChildSelector
+                      children={children}
+                      selected={selectedChildId}
+                      onSelect={setSelectedChildId}
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowChildSettings(true)}
+                    className="text-gray-300 hover:text-gray-500 min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowChildSettings(true)}
+                  className="w-full flex items-center justify-center gap-2 bg-white border-2 border-dashed border-gray-200 rounded-2xl py-3 text-sm text-gray-400 hover:text-sky-500 hover:border-sky-300 transition-colors min-h-[44px]"
+                >
+                  <Users className="w-4 h-4" />
+                  兄弟がいる場合はここで子どもを追加
+                </button>
+              )}
+            </div>
 
             <div className="animate-fade-in-delay-1">
               <PhotoUploader onAnalyze={handleAnalyze} isLoading={isLoading} />
