@@ -10,10 +10,15 @@ import NoticeList from "@/components/NoticeList";
 import ReminderSetting from "@/components/ReminderSetting";
 import PhotoViewer from "@/components/PhotoViewer";
 import SkeletonLoader from "@/components/SkeletonLoader";
-import type { AnalysisResult, PrintRecord } from "@/lib/types";
-import { loadRecords, addRecord, updateRecord, deleteRecord } from "@/lib/storage";
+import ChildSettings from "@/components/ChildSettings";
+import ChildSelector from "@/components/ChildSelector";
+import type { AnalysisResult, PrintRecord, Child } from "@/lib/types";
+import {
+  loadRecords, addRecord, updateRecord, deleteRecord,
+  loadChildren, getLastChildId, setLastChildId,
+} from "@/lib/storage";
 import { checkAndNotify } from "@/lib/reminder";
-import { ArrowLeft, Trash2, Clock, X } from "lucide-react";
+import { ArrowLeft, Trash2, Clock, Settings, Users } from "lucide-react";
 
 type View = "home" | "detail";
 
@@ -24,13 +29,24 @@ export default function Home() {
   const [activeRecord, setActiveRecord] = useState<PrintRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [children, setChildrenState] = useState<Child[]>([]);
+  const [showChildSettings, setShowChildSettings] = useState(false);
+  const [filterChildId, setFilterChildId] = useState<string | null>(null);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
   useEffect(() => {
     setRecords(loadRecords());
+    setChildrenState(loadChildren());
+    const lastChild = getLastChildId();
+    if (lastChild) setSelectedChildId(lastChild);
     checkAndNotify();
     const interval = setInterval(checkAndNotify, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  const refreshChildren = () => {
+    setChildrenState(loadChildren());
+  };
 
   const handleAnalyze = async (images: ImageData[]) => {
     setIsLoading(true);
@@ -51,12 +67,16 @@ export default function Home() {
         throw new Error((data as unknown as { error: string }).error || "解析に失敗しました");
       }
 
+      const childId = selectedChildId || undefined;
+      if (childId) setLastChildId(childId);
+
       const record: PrintRecord = {
         id: `print-${Date.now()}`,
         title: data.events[0]?.title || data.notices[0]?.slice(0, 20) || "プリント",
         createdAt: new Date().toISOString(),
         result: data,
         images: images.map((img) => img.dataUrl),
+        childId,
       };
 
       addRecord(record);
@@ -118,6 +138,15 @@ export default function Home() {
     return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
   }
 
+  function getChildForRecord(record: PrintRecord): Child | undefined {
+    if (!record.childId) return undefined;
+    return children.find((c) => c.id === record.childId);
+  }
+
+  const filteredRecords = filterChildId
+    ? records.filter((r) => r.childId === filterChildId)
+    : records;
+
   return (
     <div className="min-h-screen bg-[#f8fafb]">
       {/* Header */}
@@ -131,12 +160,18 @@ export default function Home() {
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
             <span className="text-2xl">🏫</span>
             <h1 className="text-lg font-bold text-gray-800">
               おたより読み取り
             </h1>
           </div>
+          <button
+            onClick={() => setShowChildSettings(true)}
+            className="text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
@@ -157,6 +192,20 @@ export default function Home() {
                 予定と持ち物を自動で整理します
               </p>
             </div>
+
+            {/* Child selector for upload */}
+            {children.length > 0 && (
+              <div className="animate-fade-in">
+                <p className="text-xs text-gray-400 mb-2">だれのプリント？</p>
+                <ChildSelector
+                  children={children}
+                  selected={selectedChildId}
+                  onSelect={setSelectedChildId}
+                  showAll={false}
+                />
+              </div>
+            )}
+
             <div className="animate-fade-in-delay-1">
               <PhotoUploader onAnalyze={handleAnalyze} isLoading={isLoading} />
             </div>
@@ -173,24 +222,51 @@ export default function Home() {
                   <Clock className="w-4 h-4" />
                   保存済みのプリント
                 </h2>
+
+                {/* Child filter */}
+                {children.length > 0 && (
+                  <div className="mb-3">
+                    <ChildSelector
+                      children={children}
+                      selected={filterChildId}
+                      onSelect={setFilterChildId}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  {records.map((record, idx) => {
+                  {filteredRecords.map((record, idx) => {
                     const itemCount = record.result.items.length;
                     const checkedCount = record.result.items.filter((i) => i.checked).length;
+                    const child = getChildForRecord(record);
                     return (
                       <button
                         key={record.id}
                         onClick={() => handleOpenRecord(record)}
-                        className="w-full bg-white border border-gray-100 rounded-2xl p-4 shadow-sm text-left hover:shadow-md transition-all flex items-center gap-3 min-h-[44px]"
-                        style={{ animationDelay: `${idx * 0.05}s` }}
+                        className="w-full bg-white border rounded-2xl p-4 shadow-sm text-left hover:shadow-md transition-all flex items-center gap-3 min-h-[44px]"
+                        style={{
+                          borderColor: child ? child.color + "40" : undefined,
+                          borderLeftWidth: child ? "4px" : undefined,
+                          borderLeftColor: child ? child.color : undefined,
+                        }}
                       >
                         <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center flex-shrink-0">
                           <span className="text-lg">📄</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-800 truncate">
-                            {record.title}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-800 truncate">
+                              {record.title}
+                            </p>
+                            {child && (
+                              <span
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white flex-shrink-0"
+                                style={{ backgroundColor: child.color }}
+                              >
+                                {child.name}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
                             <span>{formatDate(record.createdAt)}</span>
                             {record.result.events.length > 0 && (
@@ -214,12 +290,35 @@ export default function Home() {
                       </button>
                     );
                   })}
+                  {filteredRecords.length === 0 && filterChildId && (
+                    <p className="text-sm text-gray-400 text-center py-6">
+                      この子のプリントはまだありません
+                    </p>
+                  )}
                 </div>
               </div>
             )}
           </>
         ) : activeRecord ? (
           <>
+            {/* Child badge in detail */}
+            {(() => {
+              const child = getChildForRecord(activeRecord);
+              return child ? (
+                <div className="animate-fade-in flex items-center gap-2">
+                  <span
+                    className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-white"
+                    style={{ backgroundColor: child.color }}
+                  >
+                    <span className="w-5 h-5 bg-white/30 rounded-full text-[10px] font-bold flex items-center justify-center">
+                      {child.name.charAt(0)}
+                    </span>
+                    {child.name}のプリント
+                  </span>
+                </div>
+              ) : null;
+            })()}
+
             {/* Original photos */}
             {activeRecord.images && activeRecord.images.length > 0 && (
               <div className="animate-fade-in">
@@ -229,7 +328,7 @@ export default function Home() {
 
             {/* Results */}
             <div className="animate-fade-in-delay-1">
-              <EventList events={activeRecord.result.events} />
+              <EventList events={activeRecord.result.events} childName={getChildForRecord(activeRecord)?.name} />
             </div>
             <div className="animate-fade-in-delay-2">
               <CheckList items={activeRecord.result.items} onToggle={handleToggleItem} />
@@ -238,7 +337,7 @@ export default function Home() {
               <NoticeList notices={activeRecord.result.notices} />
             </div>
             <div className="animate-fade-in-delay-3">
-              <CalendarSync events={activeRecord.result.events} />
+              <CalendarSync events={activeRecord.result.events} childName={getChildForRecord(activeRecord)?.name} />
             </div>
             <div className="animate-fade-in-delay-3">
               <ReminderSetting
@@ -259,6 +358,15 @@ export default function Home() {
           </>
         ) : null}
       </main>
+
+      {/* Child Settings Modal */}
+      {showChildSettings && (
+        <ChildSettings
+          children={children}
+          onClose={() => setShowChildSettings(false)}
+          onUpdate={refreshChildren}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (

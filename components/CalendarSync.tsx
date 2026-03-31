@@ -6,6 +6,7 @@ import type { SchoolEvent } from "@/lib/types";
 
 interface CalendarSyncProps {
   events: SchoolEvent[];
+  childName?: string;
 }
 
 function formatDateJP(dateStr: string): string {
@@ -21,7 +22,7 @@ function formatDateJP(dateStr: string): string {
   }
 }
 
-function generateICSContent(events: SchoolEvent[]): string {
+function generateICSContent(events: SchoolEvent[], childName?: string): string {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -49,7 +50,8 @@ function generateICSContent(events: SchoolEvent[]): string {
       lines.push(`DTEND;VALUE=DATE:${nextDayStr}`);
     }
 
-    lines.push(`SUMMARY:${event.title}`);
+    const summary = childName ? `【${childName}】${event.title}` : event.title;
+    lines.push(`SUMMARY:${summary}`);
     if (event.location) lines.push(`LOCATION:${event.location}`);
     if (event.description) lines.push(`DESCRIPTION:${event.description}`);
     lines.push("END:VEVENT");
@@ -59,8 +61,8 @@ function generateICSContent(events: SchoolEvent[]): string {
   return lines.join("\r\n");
 }
 
-function downloadICS(events: SchoolEvent[]) {
-  const content = generateICSContent(events);
+function downloadICS(events: SchoolEvent[], childName?: string) {
+  const content = generateICSContent(events, childName);
   const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -70,10 +72,11 @@ function downloadICS(events: SchoolEvent[]) {
   URL.revokeObjectURL(url);
 }
 
-function buildGoogleCalendarUrl(event: SchoolEvent): string {
+function buildGoogleCalendarUrl(event: SchoolEvent, childName?: string): string {
+  const title = childName ? `【${childName}】${event.title}` : event.title;
   const params = new URLSearchParams({
     action: "TEMPLATE",
-    text: event.title,
+    text: title,
   });
 
   if (event.time) {
@@ -98,7 +101,7 @@ function buildGoogleCalendarUrl(event: SchoolEvent): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-export default function CalendarSync({ events }: CalendarSyncProps) {
+export default function CalendarSync({ events, childName }: CalendarSyncProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
   const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
@@ -198,7 +201,7 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
       </button>
 
       <button
-        onClick={() => downloadICS(selected.size > 0 ? selectedEvents : events)}
+        onClick={() => downloadICS(selected.size > 0 ? selectedEvents : events, childName)}
         className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-2xl py-3.5 px-4 text-sm font-medium transition-colors min-h-[44px]"
       >
         <Download className="w-4 h-4" />
@@ -225,7 +228,7 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
               {selectedEvents.map((event) => (
                 <a
                   key={event.id}
-                  href={buildGoogleCalendarUrl(event)}
+                  href={buildGoogleCalendarUrl(event, childName)}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleMarkRegistered(event.id)}

@@ -5,6 +5,7 @@ import type { SchoolEvent } from "@/lib/types";
 
 interface EventListProps {
   events: SchoolEvent[];
+  childName?: string;
 }
 
 type BadgeType = "行事" | "集金" | "持参" | "予定";
@@ -37,7 +38,7 @@ function formatDate(dateStr: string): string {
   }
 }
 
-export default function EventList({ events }: EventListProps) {
+export default function EventList({ events, childName }: EventListProps) {
   if (events.length === 0) return null;
 
   return (

@@ -22,10 +22,17 @@ export interface AnalysisResult {
   rawText?: string;
 }
 
+export interface Child {
+  id: string;
+  name: string;
+  color: string; // hex color for border/badge
+}
+
 export interface PrintRecord {
   id: string;
   title: string;
   createdAt: string;
   result: AnalysisResult;
-  images?: string[]; // dataUrl of uploaded photos
+  images?: string[];
+  childId?: string; // linked child
 }
