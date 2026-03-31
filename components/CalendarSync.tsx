@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarPlus, Download, Check, X, Loader2 } from "lucide-react";
+import { CalendarPlus, Download, Check, X } from "lucide-react";
 import type { SchoolEvent } from "@/lib/types";
 
 interface CalendarSyncProps {
@@ -73,33 +73,38 @@ function downloadICS(events: SchoolEvent[]) {
   URL.revokeObjectURL(url);
 }
 
-function openGoogleCalendarBatch(events: SchoolEvent[]) {
-  // Open Google Calendar for each event (with slight delay to avoid popup blocking)
-  events.forEach((event, i) => {
-    setTimeout(() => {
-      const params = new URLSearchParams({
-        action: "TEMPLATE",
-        text: event.title,
-        dates: event.time
-          ? `${event.date.replace(/-/g, "")}T${event.time.replace(":", "")}00/${event.date.replace(/-/g, "")}T${event.time.replace(":", "")}00`
-          : `${event.date.replace(/-/g, "")}/${event.date.replace(/-/g, "")}`,
-        ctz: "Asia/Tokyo",
-      });
-      if (event.location) params.set("location", event.location);
-      if (event.description) params.set("details", event.description);
-
-      window.open(
-        `https://calendar.google.com/calendar/render?${params.toString()}`,
-        "_blank"
-      );
-    }, i * 500);
+function buildGoogleCalendarUrl(event: SchoolEvent): string {
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.title,
   });
+
+  if (event.time) {
+    const startDate = event.date.replace(/-/g, "");
+    const startTime = event.time.replace(":", "") + "00";
+    const [h, m] = event.time.split(":").map(Number);
+    const endH = String(h + 1).padStart(2, "0");
+    const endTime = `${endH}${String(m).padStart(2, "0")}00`;
+    params.set("dates", `${startDate}T${startTime}/${startDate}T${endTime}`);
+  } else {
+    // All-day event
+    const startDate = event.date.replace(/-/g, "");
+    const nextDay = new Date(event.date + "T00:00:00");
+    nextDay.setDate(nextDay.getDate() + 1);
+    const endDate = nextDay.toISOString().split("T")[0].replace(/-/g, "");
+    params.set("dates", `${startDate}/${endDate}`);
+  }
+
+  params.set("ctz", "Asia/Tokyo");
+  if (event.location) params.set("location", event.location);
+  if (event.description) params.set("details", event.description);
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 export default function CalendarSync({ events }: CalendarSyncProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
 
   if (events.length === 0) return null;
 
@@ -127,15 +132,18 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
     setShowConfirm(true);
   };
 
-  const handleConfirmRegister = async () => {
-    setIsRegistering(true);
-    // Use Google Calendar URL method (works without OAuth)
-    openGoogleCalendarBatch(selectedEvents);
-    setTimeout(() => {
-      setIsRegistering(false);
-      setShowConfirm(false);
+  const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
+
+  const handleMarkRegistered = (id: string) => {
+    setRegisteredIds((prev) => new Set(prev).add(id));
+  };
+
+  const handleCloseConfirm = () => {
+    setShowConfirm(false);
+    setRegisteredIds(new Set());
+    if (registeredIds.size > 0) {
       setSelected(new Set());
-    }, selectedEvents.length * 500 + 500);
+    }
   };
 
   return (
@@ -209,9 +217,9 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto shadow-xl">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-bold text-gray-800">カレンダー登録の確認</h3>
+              <h3 className="font-bold text-gray-800">Googleカレンダーに登録</h3>
               <button
-                onClick={() => setShowConfirm(false)}
+                onClick={handleCloseConfirm}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
@@ -219,45 +227,56 @@ export default function CalendarSync({ events }: CalendarSyncProps) {
             </div>
             <div className="p-4 space-y-2">
               <p className="text-sm text-gray-500 mb-3">
-                以下の{selectedEvents.length}件をGoogleカレンダーに登録します：
+                各予定のリンクをタップしてGoogleカレンダーに登録してください：
               </p>
               {selectedEvents.map((event) => (
-                <div
+                <a
                   key={event.id}
-                  className="bg-gray-50 rounded-lg p-3"
+                  href={buildGoogleCalendarUrl(event)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => handleMarkRegistered(event.id)}
+                  className={`block rounded-xl p-3 border transition-colors ${
+                    registeredIds.has(event.id)
+                      ? "bg-green-50 border-green-200"
+                      : "bg-white border-gray-200 hover:bg-blue-50"
+                  }`}
                 >
-                  <p className="font-medium text-sm text-gray-800">{event.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {formatDateJP(event.date)}
-                    {event.time ? ` ${event.time}` : "（終日予定）"}
-                    {event.location ? ` / ${event.location}` : ""}
-                  </p>
-                </div>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        registeredIds.has(event.id)
+                          ? "bg-green-500"
+                          : "bg-blue-500"
+                      }`}
+                    >
+                      {registeredIds.has(event.id) ? (
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      ) : (
+                        <CalendarPlus className="w-3 h-3 text-white" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-gray-800">{event.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {formatDateJP(event.date)}
+                        {event.time ? ` ${event.time}` : "（終日予定）"}
+                        {event.location ? ` / ${event.location}` : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {registeredIds.has(event.id) ? "済" : "登録"}
+                    </span>
+                  </div>
+                </a>
               ))}
-              <p className="text-xs text-gray-400 mt-2">
-                Googleカレンダーが新しいタブで開きます。各予定を「保存」してください。
-              </p>
             </div>
-            <div className="p-4 border-t border-gray-100 flex gap-2">
+            <div className="p-4 border-t border-gray-100">
               <button
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 text-sm font-medium transition-colors"
+                onClick={handleCloseConfirm}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 text-sm font-medium transition-colors"
               >
-                キャンセル
-              </button>
-              <button
-                onClick={handleConfirmRegister}
-                disabled={isRegistering}
-                className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white rounded-xl py-3 text-sm font-medium transition-colors"
-              >
-                {isRegistering ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    登録中...
-                  </>
-                ) : (
-                  "登録する"
-                )}
+                閉じる
               </button>
             </div>
           </div>

@@ -11,7 +11,7 @@ import ReminderSetting from "@/components/ReminderSetting";
 import type { AnalysisResult, PrintRecord } from "@/lib/types";
 import { loadRecords, addRecord, updateRecord, deleteRecord } from "@/lib/storage";
 import { checkAndNotify } from "@/lib/reminder";
-import { ArrowLeft, Trash2, Clock } from "lucide-react";
+import { ArrowLeft, Trash2, Clock, X } from "lucide-react";
 
 type View = "home" | "detail";
 
@@ -21,6 +21,7 @@ export default function Home() {
   const [records, setRecords] = useState<PrintRecord[]>([]);
   const [activeRecord, setActiveRecord] = useState<PrintRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
     setRecords(loadRecords());
@@ -90,12 +91,18 @@ export default function Home() {
 
   const handleDeleteRecord = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    deleteRecord(id);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteRecord(deleteTarget);
     setRecords(loadRecords());
-    if (activeRecord?.id === id) {
+    if (activeRecord?.id === deleteTarget) {
       setActiveRecord(null);
       setView("home");
     }
+    setDeleteTarget(null);
   };
 
   const handleBack = () => {
@@ -216,6 +223,39 @@ export default function Home() {
           </>
         ) : null}
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+            <div className="p-5 text-center">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Trash2 className="w-6 h-6 text-red-500" />
+              </div>
+              <h3 className="font-bold text-gray-800 mb-1">削除しますか？</h3>
+              <p className="text-sm text-gray-500">
+                このプリントの解析結果が削除されます。
+                <br />
+                この操作は取り消せません。
+              </p>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 text-sm font-medium transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-3 text-sm font-medium transition-colors"
+              >
+                削除する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
