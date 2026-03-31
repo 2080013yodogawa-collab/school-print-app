@@ -1,64 +1,117 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import PhotoUploader from "@/components/PhotoUploader";
+import EventList from "@/components/EventList";
+import CheckList from "@/components/CheckList";
+import CalendarSync from "@/components/CalendarSync";
+import NoticeList from "@/components/NoticeList";
+import type { AnalysisResult } from "@/lib/types";
+import { ArrowLeft } from "lucide-react";
 
 export default function Home() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAnalyze = async (image: string, mimeType: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image, mimeType }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "解析に失敗しました");
+      }
+
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleToggleItem = (id: string) => {
+    if (!result) return;
+    setResult({
+      ...result,
+      items: result.items.map((item) =>
+        item.id === id ? { ...item, checked: !item.checked } : item
+      ),
+    });
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setError(null);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+          {result && (
+            <button
+              onClick={handleReset}
+              className="text-gray-500 hover:text-gray-700 -ml-1"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <h1 className="text-lg font-bold text-gray-800">
+            おたより読み取り
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-md mx-auto px-4 py-6 space-y-6">
+        {!result ? (
+          <>
+            {/* Upload Section */}
+            <div className="text-center mb-6">
+              <p className="text-2xl mb-2">📋</p>
+              <p className="text-gray-600 text-sm">
+                学校のプリントを撮影すると
+                <br />
+                予定と持ち物を自動で整理します
+              </p>
+            </div>
+            <PhotoUploader onAnalyze={handleAnalyze} isLoading={isLoading} />
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Results */}
+            <EventList events={result.events} />
+            <CheckList items={result.items} onToggle={handleToggleItem} />
+            <NoticeList notices={result.notices} />
+            <CalendarSync events={result.events} />
+
+            {/* Scan Another */}
+            <div className="pt-4">
+              <button
+                onClick={handleReset}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl py-3 text-sm font-medium transition-colors"
+              >
+                別のプリントを読み取る
+              </button>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
