@@ -27,4 +27,5 @@ export interface PrintRecord {
   title: string;
   createdAt: string;
   result: AnalysisResult;
+  images?: string[]; // dataUrl of uploaded photos
 }

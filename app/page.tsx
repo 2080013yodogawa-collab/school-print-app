@@ -8,6 +8,7 @@ import CheckList from "@/components/CheckList";
 import CalendarSync from "@/components/CalendarSync";
 import NoticeList from "@/components/NoticeList";
 import ReminderSetting from "@/components/ReminderSetting";
+import PhotoViewer from "@/components/PhotoViewer";
 import type { AnalysisResult, PrintRecord } from "@/lib/types";
 import { loadRecords, addRecord, updateRecord, deleteRecord } from "@/lib/storage";
 import { checkAndNotify } from "@/lib/reminder";
@@ -55,6 +56,7 @@ export default function Home() {
         title: data.events[0]?.title || data.notices[0]?.slice(0, 20) || "プリント",
         createdAt: new Date().toISOString(),
         result: data,
+        images: images.map((img) => img.dataUrl),
       };
 
       addRecord(record);
@@ -201,6 +203,11 @@ export default function Home() {
           </>
         ) : activeRecord ? (
           <>
+            {/* Original photos */}
+            {activeRecord.images && activeRecord.images.length > 0 && (
+              <PhotoViewer images={activeRecord.images} />
+            )}
+
             {/* Results */}
             <EventList events={activeRecord.result.events} />
             <CheckList items={activeRecord.result.items} onToggle={handleToggleItem} />
