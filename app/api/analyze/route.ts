@@ -180,7 +180,18 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Analysis error:", error);
-    const message = error instanceof Error ? error.message : "解析中にエラーが発生しました";
+    let message = "解析中にエラーが発生しました";
+    if (error instanceof Error) {
+      if (error.message.includes("quota") || error.message.includes("exceeded")) {
+        message = "APIの利用上限に達しました。しばらく時間を置いてから再度お試しください。（目安：1分ほど）";
+      } else if (error.message.includes("rate")) {
+        message = "リクエストが多すぎます。少し時間を置いてから再度お試しください。";
+      } else if (error.message.includes("auth") || error.message.includes("key")) {
+        message = "APIキーが無効です。設定を確認してください。";
+      } else {
+        message = error.message;
+      }
+    }
     return Response.json({ error: message }, { status: 500 });
   }
 }

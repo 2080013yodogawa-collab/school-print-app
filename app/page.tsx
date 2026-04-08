@@ -12,13 +12,21 @@ import PhotoViewer from "@/components/PhotoViewer";
 import SkeletonLoader from "@/components/SkeletonLoader";
 import ChildSettings from "@/components/ChildSettings";
 import ChildSelector from "@/components/ChildSelector";
+import FamilyCode from "@/components/FamilyCode";
 import type { AnalysisResult, PrintRecord, Child } from "@/lib/types";
 import {
   loadRecords, addRecord, updateRecord, deleteRecord,
-  loadChildren, getLastChildId, setLastChildId,
+  loadChildren, saveChildren, getLastChildId, setLastChildId,
 } from "@/lib/storage";
+import {
+  getFamilyCode, createFamily, joinFamily, clearFamilyCode,
+  cloudLoadRecords, cloudAddRecord, cloudUpdateRecord, cloudDeleteRecord,
+  cloudLoadChildren, cloudSaveChildren, syncLocalToCloud,
+} from "@/lib/cloud-storage";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { checkAndNotify } from "@/lib/reminder";
-import { ArrowLeft, Trash2, Clock, Settings, Users } from "lucide-react";
+import { ArrowLeft, Trash2, Clock, Settings, Users, Share2 } from "lucide-react";
+import { buildShareUrl } from "@/lib/share";
 
 type View = "home" | "detail";
 
@@ -33,19 +41,93 @@ export default function Home() {
   const [showChildSettings, setShowChildSettings] = useState(false);
   const [filterChildId, setFilterChildId] = useState<string | null>(null);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [familyCode, setFamilyCodeState] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [cloudEnabled, setCloudEnabled] = useState(false);
 
+  // Load data on mount
   useEffect(() => {
     setRecords(loadRecords());
     setChildrenState(loadChildren());
     const lastChild = getLastChildId();
     if (lastChild) setSelectedChildId(lastChild);
+    setFamilyCodeState(getFamilyCode());
+    setCloudEnabled(isSupabaseConfigured());
     checkAndNotify();
     const interval = setInterval(checkAndNotify, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  const refreshChildren = () => {
+  // Auto-sync from cloud when family code is set
+  useEffect(() => {
+    if (familyCode && cloudEnabled) {
+      syncFromCloud();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [familyCode, cloudEnabled]);
+
+  const syncFromCloud = async () => {
+    if (!familyCode || !cloudEnabled) return;
+    setIsSyncing(true);
+    try {
+      const [cloudRecords, cloudChildren] = await Promise.all([
+        cloudLoadRecords(),
+        cloudLoadChildren(),
+      ]);
+
+      // Merge: cloud records + local-only records
+      const localRecords = loadRecords();
+      const cloudIds = new Set(cloudRecords.map((r) => r.id));
+      const mergedRecords = [
+        ...cloudRecords,
+        ...localRecords.filter((r) => !cloudIds.has(r.id)),
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setRecords(mergedRecords);
+
+      // Merge children: prefer cloud
+      if (cloudChildren.length > 0) {
+        setChildrenState(cloudChildren);
+        saveChildren(cloudChildren);
+      }
+    } catch (e) {
+      console.error("Cloud sync failed:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleCreateFamily = async () => {
+    const code = await createFamily();
+    if (code) {
+      setFamilyCodeState(code);
+      // Upload existing local data to cloud
+      await syncLocalToCloud();
+    }
+  };
+
+  const handleJoinFamily = async (code: string): Promise<boolean> => {
+    const ok = await joinFamily(code);
+    if (ok) {
+      setFamilyCodeState(code);
+    }
+    return ok;
+  };
+
+  const handleLeaveFamily = () => {
+    clearFamilyCode();
+    setFamilyCodeState(null);
+    // Reload from local only
+    setRecords(loadRecords());
     setChildrenState(loadChildren());
+  };
+
+  const refreshChildren = () => {
+    const updated = loadChildren();
+    setChildrenState(updated);
+    if (familyCode && cloudEnabled) {
+      cloudSaveChildren(updated);
+    }
   };
 
   const handleAnalyze = async (images: ImageData[]) => {
@@ -80,6 +162,9 @@ export default function Home() {
       };
 
       addRecord(record);
+      if (familyCode && cloudEnabled) {
+        cloudAddRecord(record).catch(console.error);
+      }
       setRecords(loadRecords());
       setActiveRecord(record);
       setView("detail");
@@ -102,9 +187,12 @@ export default function Home() {
       },
     };
     updateRecord(activeRecord.id, updated);
+    if (familyCode && cloudEnabled) {
+      cloudUpdateRecord(activeRecord.id, updated).catch(console.error);
+    }
     setActiveRecord(updated);
     setRecords(loadRecords());
-  }, [activeRecord]);
+  }, [activeRecord, familyCode, cloudEnabled]);
 
   const handleOpenRecord = (record: PrintRecord) => {
     setActiveRecord(record);
@@ -119,6 +207,9 @@ export default function Home() {
   const confirmDelete = () => {
     if (!deleteTarget) return;
     deleteRecord(deleteTarget);
+    if (familyCode && cloudEnabled) {
+      cloudDeleteRecord(deleteTarget).catch(console.error);
+    }
     setRecords(loadRecords());
     if (activeRecord?.id === deleteTarget) {
       setActiveRecord(null);
@@ -131,6 +222,31 @@ export default function Home() {
     setActiveRecord(null);
     setView("home");
     setError(null);
+  };
+
+  const handleShare = async () => {
+    if (!activeRecord) return;
+    const child = getChildForRecord(activeRecord);
+    const url = buildShareUrl(window.location.origin, {
+      title: activeRecord.title,
+      childName: child?.name,
+      result: activeRecord.result,
+    });
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `おたより: ${activeRecord.title}`,
+          text: child ? `${child.name}のプリントの内容だよ` : "プリントの内容だよ",
+          url,
+        });
+      } catch {
+        // user cancelled share
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+      alert("共有リンクをコピーしました！LINEなどに貼り付けて送ってください。");
+    }
   };
 
   function formatDate(iso: string) {
@@ -217,6 +333,20 @@ export default function Home() {
                 </button>
               )}
             </div>
+
+            {/* Family sharing */}
+            {cloudEnabled && (
+              <div className="animate-fade-in">
+                <FamilyCode
+                  familyCode={familyCode}
+                  onCreateFamily={handleCreateFamily}
+                  onJoinFamily={handleJoinFamily}
+                  onLeaveFamily={handleLeaveFamily}
+                  onSync={syncFromCloud}
+                  isSyncing={isSyncing}
+                />
+              </div>
+            )}
 
             <div className="animate-fade-in-delay-1">
               <PhotoUploader onAnalyze={handleAnalyze} isLoading={isLoading} />
@@ -370,6 +500,21 @@ export default function Home() {
             <div className="animate-fade-in-delay-3">
               <CalendarSync events={activeRecord.result.events} childName={getChildForRecord(activeRecord)?.name} />
             </div>
+
+            {/* Share with Papa */}
+            <div className="animate-fade-in-delay-3">
+              <button
+                onClick={handleShare}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-sky-400 to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white rounded-2xl py-4 text-sm font-bold shadow-lg shadow-sky-500/20 transition-all active:scale-[0.98] min-h-[44px]"
+              >
+                <Share2 className="w-5 h-5" />
+                パパに共有する
+              </button>
+              <p className="text-xs text-gray-400 text-center mt-1.5">
+                LINEなどで送れる共有リンクを作成します
+              </p>
+            </div>
+
             <div className="animate-fade-in-delay-3">
               <ReminderSetting
                 events={activeRecord.result.events}
